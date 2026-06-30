@@ -11,12 +11,17 @@ import argparse
 
 SKILL_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
+def _get_auth_path():
+    workspace_auth = os.path.expanduser('~/.workbuddy/skills/xiaomi-home-agent/config/auth.json')
+    os.makedirs(os.path.dirname(workspace_auth), exist_ok=True)
+    return workspace_auth
+
 def control_device(did, action, value=None):
     """控制设备"""
     try:
         from mijiaAPI import mijiaAPI
         
-        api = mijiaAPI()
+        api = mijiaAPI(auth_data_path=_get_auth_path())
         
         print(f"🎛️  控制设备: {did}")
         print(f"   动作: {action}")
@@ -142,7 +147,7 @@ def find_device_by_name(name_query):
     try:
         from mijiaAPI import mijiaAPI
         
-        api = mijiaAPI()
+        api = mijiaAPI(auth_data_path=_get_auth_path())
         devices = api.get_devices_list()
         
         matches = []

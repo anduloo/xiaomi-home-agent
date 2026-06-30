@@ -3,6 +3,8 @@ config/auth.json
 config/devices_cache.json
 config/scenes_cache.json
 config/qr_code.png
+config/login_result.txt
+config/qr_login_url.txt
 
 # 忽略日志
 logs/

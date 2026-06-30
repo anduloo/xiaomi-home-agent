@@ -148,10 +148,30 @@ online = device.get('isOnline', False)  # 正确
 # online = device.get('online', False)  # 错误
 ```
 
+### BLE/传感器设备 PIID 范围（重要）
+
+**⚠️ MIoT 设备有两种 PIID 分布模式，查询时必须两者都覆盖：**
+
+| 设备类型 | SIID | PIID 范围 | 示例属性 |
+|---------|------|----------|---------|
+| 标准设备（开关/灯/窗帘） | 2 | 1-6 | on/off(1), brightness(2), mode(4) |
+| 环境传感器 | 3 | 1-7 | temperature(1), humidity(2), PM2.5(3), CO2(4) |
+| **BLE/人体存在传感器** | **2** | **1005-1080** | occupancy-status(1078), no-one-duration(1079), illumination(1005) |
+| BLE 电池 | 4 | 1003 | battery-level |
+
+**根因**：Linptect ES3 等 BLE mesh 传感器使用 MIoT spec v2，其属性 ID 从 1000 起编，与标准 Wi-Fi/Zigbee 设备 (piid 1-10) 完全不同。**仅查询 piid 1-10 会静默返回"属性不存在"(code=-704040003)**。
+
+**正确做法**：查询传感器时必须同时扫描 `siid=2, piid=1-9` + `siid=3, piid=1-7` + `siid=2, piid=(1005,1078,1079,1080)` + `siid=4, piid=(1,1003)`。
+
+**MIoT spec 查询**：如果上述范围仍不够，可通过小米官方 spec 服务器获取完整属性定义：
+```
+https://miot-spec.org/miot-spec-v2/instance?type=urn:miot-spec-v2:device:<device-type>:<model>:<version>
+```
+
 ### 错误码处理
 
 常见错误码：
-- `-704040003`: 属性不存在
+- `-704040003`: 属性不存在（常见原因：PIID 不在该设备的有效范围内，如 BLE 设备需查 1000+ 范围）
 - `-704040005`: Action 不存在
 - `-8`: 数据类型无效（通常是设备离线）
 
@@ -182,11 +202,26 @@ xiaomi-home-agent/
 
 ## 🔒 安全说明
 
-- mijiaAPI Token 存储在 `~/.miot/` 目录下
+- mijiaAPI Token 存储在 `~/.workbuddy/skills/xiaomi-home-agent/config/auth.json`（WorkBuddy 沙箱适配）
 - 支持本地局域网控制和云端控制
 - 绝不泄露敏感 Token
 
+## ⚠️ WorkBuddy 沙箱适配
+
+WorkBuddy 沙箱限制访问 `~/.config/` 目录，因此所有脚本使用 workspace-local auth 路径：
+- Auth 文件: `~/.workbuddy/skills/xiaomi-home-agent/config/auth.json`
+- 设备缓存: `~/.workbuddy/skills/xiaomi-home-agent/config/devices_cache.json`
+
 ## 📝 更新日志
+
+### v1.0.2 (2026-06-30)
+- ✅ 修复 BLE/人体存在传感器 PIID 盲区：`get_device_status.py` 新增 1000+ 范围扫描
+- ✅ 新增 MIoT BLE 传感器 PIID 参考文档
+- ✅ 修复环境传感器 (siid=3) 属性扫描覆盖
+
+### v1.0.1 (2026-06-30)
+- ✅ WorkBuddy 沙箱适配：auth 路径改为 workspace-local
+- ✅ 修复 list_devices / control_device / get_device_status 的 auth 路径
 
 ### v1.0.0 (2026-03-24)
 - ✅ 初始版本发布

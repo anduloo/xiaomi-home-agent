@@ -13,6 +13,12 @@ SKILL_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CONFIG_DIR = os.path.join(SKILL_ROOT, 'config')
 AUTH_FILE = os.path.join(CONFIG_DIR, 'auth.json')
 
+# WorkBuddy sandbox: use workspace-local auth path instead of ~/.config/mijia-api/
+def _get_auth_path():
+    workspace_auth = os.path.expanduser('~/.workbuddy/skills/xiaomi-home-agent/config/auth.json')
+    os.makedirs(os.path.dirname(workspace_auth), exist_ok=True)
+    return workspace_auth
+
 def list_devices():
     """列出所有设备"""
     try:
@@ -21,8 +27,8 @@ def list_devices():
         
         print("☁️  正在获取设备列表...\n")
         
-        # 创建 API 实例（会自动加载已保存的凭证）
-        api = mijiaAPI()
+        # 创建 API 实例（使用 workspace-local auth 路径适配 WorkBuddy 沙箱）
+        api = mijiaAPI(auth_data_path=_get_auth_path())
         
         # 获取设备列表
         devices = api.get_devices_list()
