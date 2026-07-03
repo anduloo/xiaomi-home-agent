@@ -46,11 +46,24 @@ python3 scripts/setup_env.py
 
 ### 2. 登录米家账号
 
-```bash
-# 使用 mijiaAPI 登录（推荐）
-/Users/$(whoami)/Library/Python/3.9/bin/mijiaAPI -l
+WorkBuddy 会话内**不要直接运行** `mijiaAPI login` / `mijiaAPI -l` 这类交互登录命令；它会在终端等待扫码，容易阻塞会话。
 
-# 扫码后，使用米家 APP 扫描二维码完成授权
+推荐路径：
+
+```bash
+python3 scripts/generate_qr.py
+```
+
+生成二维码 PNG 后，由用户用米家 APP 扫码；认证文件保存在：
+
+```text
+~/.workbuddy/skills/xiaomi-home-agent/config/auth.json
+```
+
+如使用 Do1e 官方 CLI，可让用户在独立终端执行：
+
+```bash
+uvx mijiaAPI login -p ~/.workbuddy/skills/xiaomi-home-agent/config/auth.json
 ```
 
 ### 3. 查看设备列表
@@ -121,6 +134,33 @@ for item in result:
 ```
 
 ## 🔧 技术实现细节
+
+### 与 Do1e 官方 Agent Skill 的关系
+
+当前 `xiaomi-home-agent` 已经使用 Do1e `mijiaAPI` 包作为底层，不是另一套米家协议实现。Do1e 官方 Skill 更偏向“安全调用 `uvx mijiaAPI` CLI 的操作指南”，而本 skill 更偏向 WorkBuddy 本地脚本封装。
+
+建议：
+- **不整体替换**：保留当前 `xiaomi-home-agent`，避免重做认证路径、脚本入口和聚合层适配。
+- **选择性吸收**：补齐 Do1e CLI 已暴露但本 skill 尚未脚本化的能力。
+- **优先走 Python API**：聚合层和脚本内部优先直接调用 `mijiaAPI`，减少 CLI 文本解析和交互阻塞。
+
+### Do1e mijiaAPI CLI 可补充能力
+
+当前脚本直接调用 Python API，底层包已是 Do1e `mijiaAPI`。Do1e 官方 Agent Skill 主要通过 `uvx mijiaAPI` CLI 暴露更多现成能力，可作为本 skill 的补充能力来源：
+
+| 能力 | 官方 CLI | 建议集成方式 |
+|------|----------|--------------|
+| 家庭/房间/设备映射 | `mijiaAPI --list_homes` | 已在 smart-home-aggregator 中用 `get_homes_list()` 自动补齐房间 |
+| 场景列表 | `mijiaAPI --list_scenes` | 可新增脚本 `list_scenes.py` |
+| 执行场景 | `mijiaAPI --run_scene <名称/ID>` | 可新增脚本 `run_scene.py`，支持名称或 ID |
+| 耗材寿命 | `mijiaAPI --list_consumable_items` | 可新增脚本 `list_consumables.py` |
+| 设备规格发现 | `mijiaAPI --get_device_info <model>` | 应用于控制映射自动发现，减少硬编码 siid/piid |
+| 属性读写 | `mijiaAPI get/set --did ... --prop_name ...` | 可作为通用控制兜底 |
+| 小爱自然语言执行 | `mijiaAPI run "打开卧室台灯"` | 可新增高层自然语言控制入口，但需谨慎确认 |
+
+禁止在 agent 会话中直接调用：
+- `mijiaAPI login`：二维码登录会阻塞等待扫码
+- `mijiaAPI mcp`：会启动长运行 stdio server
 
 ### 设备控制方式
 
@@ -213,6 +253,11 @@ WorkBuddy 沙箱限制访问 `~/.config/` 目录，因此所有脚本使用 work
 - 设备缓存: `~/.workbuddy/skills/xiaomi-home-agent/config/devices_cache.json`
 
 ## 📝 更新日志
+
+### v1.0.3 (2026-07-03)
+- ✅ 对齐 Do1e 官方 Agent Skill：确认当前底层已是 Do1e `mijiaAPI`，无需整体替换
+- ✅ 登录说明改为 WorkBuddy 安全流程：禁止在会话内直接运行阻塞式 `mijiaAPI login` / `mijiaAPI -l`
+- ✅ 补充 Do1e CLI 可借鉴能力：房间映射、场景、耗材、设备规格发现、通用 get/set/run
 
 ### v1.0.2 (2026-06-30)
 - ✅ 修复 BLE/人体存在传感器 PIID 盲区：`get_device_status.py` 新增 1000+ 范围扫描
