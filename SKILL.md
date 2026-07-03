@@ -60,7 +60,7 @@ python3 scripts/generate_qr.py
 ~/.workbuddy/skills/xiaomi-home-agent/config/auth.json
 ```
 
-如使用 Do1e 官方 CLI，可让用户在独立终端执行：
+如使用 `mijiaAPI` CLI，可让用户在独立终端执行：
 
 ```bash
 uvx mijiaAPI login -p ~/.workbuddy/skills/xiaomi-home-agent/config/auth.json
@@ -135,34 +135,26 @@ for item in result:
 
 ## 🔧 技术实现细节
 
-### 与 Do1e 官方 Agent Skill 的关系
+### 补充能力清单
 
-当前 `xiaomi-home-agent` 已经使用 Do1e `mijiaAPI` 包作为底层，不是另一套米家协议实现。Do1e 官方 Skill 更偏向“安全调用 `uvx mijiaAPI` CLI 的操作指南”，而本 skill 更偏向 WorkBuddy 本地脚本封装。
+本 skill 使用 Do1e `mijiaAPI` 包作为底层，以下为当前已提供的全部能力（含 v1.0.4 新增）：
 
-建议：
-- **不整体替换**：保留当前 `xiaomi-home-agent`，避免重做认证路径、脚本入口和聚合层适配。
-- **选择性吸收**：补齐 Do1e CLI 已暴露但本 skill 尚未脚本化的能力。
-- **优先走 Python API**：聚合层和脚本内部优先直接调用 `mijiaAPI`，减少 CLI 文本解析和交互阻塞。
+| 能力 | 脚本 / API | 说明 |
+|------|-----------|------|
+| 家庭/房间映射 | `list_devices.py` / `get_homes_list()` | 自动补齐设备房间和家庭信息 |
+| 设备列表 | `scripts/list_devices.py` | 按房间分组展示，输出设备 DID/型号/类型/在线状态 |
+| 设备状态 | `scripts/get_device_status.py` | 标准 + BLE PIID 双范围扫描，覆盖传感器属性 |
+| 设备控制 | `scripts/control_device.py` | 支持 on/off/brightness/temperature/position 等动作 |
+| 属性读写（通用） | `control_device.py` / `get_device_status.py` | 底层 `get_devices_prop()` / `set_devices_prop()` / `run_action()` |
+| 场景列表 | `scripts/list_scenes.py` | v1.0.4 新增，按家庭列出自动化/手动场景 |
+| 执行场景 | `scripts/run_scene.py` | v1.0.4 新增，默认 dry-run，需 `--yes` 确认 |
+| 耗材寿命 | `scripts/list_consumables.py` | v1.0.4 新增，查询滤芯/耗材剩余寿命 |
+| 设备规格发现 | `scripts/get_device_info.py` | v1.0.4 新增，MIoT spec 查询 + 在线 PIID 扫描 |
 
-### Do1e mijiaAPI CLI 可补充能力
-
-当前脚本直接调用 Python API，底层包已是 Do1e `mijiaAPI`。Do1e 官方 Agent Skill 主要通过 `uvx mijiaAPI` CLI 暴露更多现成能力，可作为本 skill 的补充能力来源：
-
-| 能力 | 官方 CLI | 集成状态 |
-|------|----------|----------|
-| 家庭/房间/设备映射 | `mijiaAPI --list_homes` | ✅ 已在 smart-home-aggregator 中用 `get_homes_list()` 自动补齐房间 |
-| 设备列表 | `mijiaAPI --list_devices` | ✅ `scripts/list_devices.py` |
-| 设备状态 | `mijiaAPI get` | ✅ `scripts/get_device_status.py` + 聚合层 `smart_home.py status` |
-| 设备控制 | `mijiaAPI set / run` | ✅ `scripts/control_device.py` + 聚合层 `smart_home.py control` |
-| 场景列表 | `mijiaAPI --list_scenes` | ✅ `scripts/list_scenes.py` (v1.0.4 新增) |
-| 执行场景 | `mijiaAPI --run_scene` | ✅ `scripts/run_scene.py` (v1.0.4 新增，默认 dry-run，需 --yes) |
-| 耗材寿命 | `mijiaAPI --list_consumable_items` | ✅ `scripts/list_consumables.py` (v1.0.4 新增) |
-| 设备规格发现 | `mijiaAPI --get_device_info <model>` | ✅ `scripts/get_device_info.py` (v1.0.4 新增，MIoT spec + 在线 PIID 扫描) |
-| 属性读写（通用） | `mijiaAPI get/set --did ...` | ✅ 已整合在 `control_device.py` / `get_device_status.py` 中 |
-| 家庭 / 共享设备 | `mijiaAPI --list_homes / --list_shared_devices` | ✅ `get_homes_list()` 已在聚合层接入；共享设备视需求可加 |
-| 小爱自然语言执行 | `mijiaAPI run "打开卧室台灯"` | ❌ 故意跳过：跨平台一致性要求用户显式确认设备名和动作 |
-| MCP 服务 | `mijiaAPI mcp` | ❌ 故意跳过：长运行 stdio server，不适合 WorkBuddy 会话 |
-| 登录 | `mijiaAPI login` | ✅ `scripts/generate_qr.py` + 手册指引；会话内不直接调用交互命令 |
+以下能力已有底层支持但建议按需使用：
+- `get_homes_list()` / `get_shared_devices_list()`：可通过 Python API 直接调用
+- `mijiaAPI run "<自然语言>"`：不推荐脚本化，跨平台一致性要求用户显式确认
+- `mijiaAPI mcp`：不推荐脚本化，长运行 service 不适合 WorkBuddy 会话
 
 禁止在 agent 会话中直接调用：
 - `mijiaAPI login`：二维码登录会阻塞等待扫码
@@ -265,17 +257,14 @@ WorkBuddy 沙箱限制访问 `~/.config/` 目录，因此所有脚本使用 work
 ## 📝 更新日志
 
 ### v1.0.4 (2026-07-03)
-- ✅ 补充 Do1e mijiaAPI CLI 完整能力：新增 4 个脚本
-  - `list_scenes.py` — 场景列表查询
-  - `run_scene.py` — 场景执行（默认 dry-run，需 `--yes` 确认）
-  - `list_consumables.py` — 耗材寿命查询
-  - `get_device_info.py` — MIoT 规格发现 + 在线 PIID 扫描
-- ✅ 补齐能力对比表：Do1e CLI 14 项能力中 12 项已覆盖，2 项故意跳过
+- ✅ 新增 4 个脚本：`list_scenes.py`、`run_scene.py`、`list_consumables.py`、`get_device_info.py`
+- ✅ `list_devices.py` 升级：自动从 `get_homes_list().roomlist` 补齐房间和家庭信息
+- ✅ `control_device.py` 升级：支持动作同义词（open/close → on/off/position）和模型类型推断
+- ✅ 移除 SKILL.md 中不准确的 Do1e 描述，仅列出已实现能力
 
 ### v1.0.3 (2026-07-03)
-- ✅ 对齐 Do1e 官方 Agent Skill：确认当前底层已是 Do1e `mijiaAPI`，无需整体替换
+- ✅ 确认当前底层已是 Do1e `mijiaAPI`，无需整体替换
 - ✅ 登录说明改为 WorkBuddy 安全流程：禁止在会话内直接运行阻塞式 `mijiaAPI login` / `mijiaAPI -l`
-- ✅ 补充 Do1e CLI 可借鉴能力：房间映射、场景、耗材、设备规格发现、通用 get/set/run
 
 ### v1.0.2 (2026-06-30)
 - ✅ 修复 BLE/人体存在传感器 PIID 盲区：`get_device_status.py` 新增 1000+ 范围扫描
