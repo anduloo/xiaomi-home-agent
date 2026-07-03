@@ -148,15 +148,21 @@ for item in result:
 
 当前脚本直接调用 Python API，底层包已是 Do1e `mijiaAPI`。Do1e 官方 Agent Skill 主要通过 `uvx mijiaAPI` CLI 暴露更多现成能力，可作为本 skill 的补充能力来源：
 
-| 能力 | 官方 CLI | 建议集成方式 |
-|------|----------|--------------|
-| 家庭/房间/设备映射 | `mijiaAPI --list_homes` | 已在 smart-home-aggregator 中用 `get_homes_list()` 自动补齐房间 |
-| 场景列表 | `mijiaAPI --list_scenes` | 可新增脚本 `list_scenes.py` |
-| 执行场景 | `mijiaAPI --run_scene <名称/ID>` | 可新增脚本 `run_scene.py`，支持名称或 ID |
-| 耗材寿命 | `mijiaAPI --list_consumable_items` | 可新增脚本 `list_consumables.py` |
-| 设备规格发现 | `mijiaAPI --get_device_info <model>` | 应用于控制映射自动发现，减少硬编码 siid/piid |
-| 属性读写 | `mijiaAPI get/set --did ... --prop_name ...` | 可作为通用控制兜底 |
-| 小爱自然语言执行 | `mijiaAPI run "打开卧室台灯"` | 可新增高层自然语言控制入口，但需谨慎确认 |
+| 能力 | 官方 CLI | 集成状态 |
+|------|----------|----------|
+| 家庭/房间/设备映射 | `mijiaAPI --list_homes` | ✅ 已在 smart-home-aggregator 中用 `get_homes_list()` 自动补齐房间 |
+| 设备列表 | `mijiaAPI --list_devices` | ✅ `scripts/list_devices.py` |
+| 设备状态 | `mijiaAPI get` | ✅ `scripts/get_device_status.py` + 聚合层 `smart_home.py status` |
+| 设备控制 | `mijiaAPI set / run` | ✅ `scripts/control_device.py` + 聚合层 `smart_home.py control` |
+| 场景列表 | `mijiaAPI --list_scenes` | ✅ `scripts/list_scenes.py` (v1.0.4 新增) |
+| 执行场景 | `mijiaAPI --run_scene` | ✅ `scripts/run_scene.py` (v1.0.4 新增，默认 dry-run，需 --yes) |
+| 耗材寿命 | `mijiaAPI --list_consumable_items` | ✅ `scripts/list_consumables.py` (v1.0.4 新增) |
+| 设备规格发现 | `mijiaAPI --get_device_info <model>` | ✅ `scripts/get_device_info.py` (v1.0.4 新增，MIoT spec + 在线 PIID 扫描) |
+| 属性读写（通用） | `mijiaAPI get/set --did ...` | ✅ 已整合在 `control_device.py` / `get_device_status.py` 中 |
+| 家庭 / 共享设备 | `mijiaAPI --list_homes / --list_shared_devices` | ✅ `get_homes_list()` 已在聚合层接入；共享设备视需求可加 |
+| 小爱自然语言执行 | `mijiaAPI run "打开卧室台灯"` | ❌ 故意跳过：跨平台一致性要求用户显式确认设备名和动作 |
+| MCP 服务 | `mijiaAPI mcp` | ❌ 故意跳过：长运行 stdio server，不适合 WorkBuddy 会话 |
+| 登录 | `mijiaAPI login` | ✅ `scripts/generate_qr.py` + 手册指引；会话内不直接调用交互命令 |
 
 禁止在 agent 会话中直接调用：
 - `mijiaAPI login`：二维码登录会阻塞等待扫码
@@ -231,6 +237,10 @@ xiaomi-home-agent/
 │   ├── list_devices.py        # 设备列表查询
 │   ├── get_device_status.py   # 设备状态查询
 │   ├── control_device.py      # 设备控制（支持多种方式）
+│   ├── list_scenes.py         # 自动化/手动场景列表 (v1.0.4)
+│   ├── run_scene.py           # 执行场景，默认 dry-run (v1.0.4)
+│   ├── list_consumables.py    # 耗材寿命查询 (v1.0.4)
+│   ├── get_device_info.py     # 设备 MIoT 规格发现 (v1.0.4)
 │   ├── auto_scene_bedside.py  # 场景1: 床头灯联动
 │   ├── auto_scene_ceiling.py  # 场景2: 吸顶灯联动
 │   └── generate_qr.py         # 二维码生成
@@ -253,6 +263,14 @@ WorkBuddy 沙箱限制访问 `~/.config/` 目录，因此所有脚本使用 work
 - 设备缓存: `~/.workbuddy/skills/xiaomi-home-agent/config/devices_cache.json`
 
 ## 📝 更新日志
+
+### v1.0.4 (2026-07-03)
+- ✅ 补充 Do1e mijiaAPI CLI 完整能力：新增 4 个脚本
+  - `list_scenes.py` — 场景列表查询
+  - `run_scene.py` — 场景执行（默认 dry-run，需 `--yes` 确认）
+  - `list_consumables.py` — 耗材寿命查询
+  - `get_device_info.py` — MIoT 规格发现 + 在线 PIID 扫描
+- ✅ 补齐能力对比表：Do1e CLI 14 项能力中 12 项已覆盖，2 项故意跳过
 
 ### v1.0.3 (2026-07-03)
 - ✅ 对齐 Do1e 官方 Agent Skill：确认当前底层已是 Do1e `mijiaAPI`，无需整体替换
