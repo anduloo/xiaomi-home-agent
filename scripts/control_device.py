@@ -238,12 +238,10 @@ def main():
     parser.add_argument("--json", action="store_true", help="JSON 输出")
     args = parser.parse_args()
 
-    try:
-        from mijiaAPI import mijiaAPI
-        api = mijiaAPI(auth_data_path=_get_auth_path())
-    except ImportError:
-        print(json.dumps({"ok": False, "error": "未安装 mijiaAPI"}, ensure_ascii=False) if args.json else "❌ 未安装 mijiaAPI")
-        return
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    from _auth_guard import require_auth
+
+    api = require_auth(json_output=args.json)
 
     # 解析设备 DID 和类型
     did = args.did

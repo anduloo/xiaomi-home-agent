@@ -86,11 +86,11 @@ _TYPE_DISPLAY = {
 
 
 def list_devices(json_output=False):
+    from _auth_guard import require_auth
+
+    api = require_auth(json_output=json_output)
+
     try:
-        from mijiaAPI import mijiaAPI
-
-        api = mijiaAPI(auth_data_path=_get_auth_path())
-
         # Build room map from roomlist
         room_map = _build_room_map(api)
 
